@@ -1,10 +1,10 @@
 {
   "name": "vmonitor-consumer",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "description": "Moniting system for vmonitor",
+  "author": "Rize Kishimaro",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "Under Server Side Public License(SSPL)",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
