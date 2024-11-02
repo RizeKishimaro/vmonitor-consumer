@@ -65,5 +65,9 @@ export class AppController {
       return () => clearInterval(cpuUsageInterval);
     });
   }
+  @Get("os-info")
+  getOsInfo() {
+    return this.appService.getOsInfo();
+  }
 }
 

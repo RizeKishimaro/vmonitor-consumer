@@ -1,16 +1,20 @@
 
 
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { exec } from 'child_process';
 import * as os from 'os-utils';
+import * as osInfo from "os"
 import axios from 'axios';
+import * as fs from 'fs';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { publicIpv4 } from 'public-ip';
 
 @Injectable()
 export class AppService {
   constructor() { }
   private prevRxBytes = 0;
   private prevTxBytes = 0;
+  private path = '/etc/os-release';
   private readonly interfaceName = 'wlan0';
   private async getNetworkSpeed(): Promise<{ rxbytes: number; txbytes: number }> {
     return new Promise((resolve, reject) => {
@@ -62,7 +66,79 @@ export class AppService {
       throw error;
     }
   }
+  async getOsInfo() {
+    const osType = osInfo.type();
 
+    // Get platform (architecture)
+    const platform = osInfo.arch();
+
+    // Get CPU information
+    const cpus = osInfo.cpus();
+    const cpuCoreNames = cpus.map(cpu => cpu.model);
+
+    // Get total RAM in GB
+    const totalRam = (osInfo.totalmem() / (1024 ** 3)).toFixed(2);
+
+    // Check if system has SSD or HDD
+    function checkStorage() {
+      const devices = fs.readdirSync('/sys/block');
+      return devices.map(device => {
+        const rotational = fs.readFileSync(`/sys/block/${device}/queue/rotational`, 'utf8').trim();
+        return {
+          device,
+          type: rotational === '1' ? 'HDD' : 'SSD',
+        };
+      });
+    }
+    const storageBlock = checkStorage()
+    // Get internal IP address
+    const internalIp = osInfo.networkInterfaces();
+    const internalIps = Object.values(internalIp)
+      .flat()
+      .filter(iface => iface.family === 'IPv4' && !iface.internal)
+      .map(iface => iface.address);
+
+    // Get public IP address (async)
+
+
+    // Get public IP address (async)
+    const publicIp = await this.getPublicIp();
+    const distro = this.getLinuxDistro() || osType;
+    return {
+      statusCode: HttpStatus.OK,
+      data: {
+        storageBlock,
+        distro,
+        osType,
+        platform,
+        cpuCoreNames,
+        totalRam,
+        internalIps,
+        publicIp
+      }
+    }
+
+  }
+  getLinuxDistro() {
+    try {
+      const osRelease = fs.readFileSync(this.path, 'utf8');
+      const lines = osRelease.split('\n');
+      const nameLine = lines.find(line => line.startsWith('PRETTY_NAME='));
+      return nameLine ? nameLine.split('=')[1].replace(/"/g, '') : 'Unknown Linux Distribution';
+    } catch (err) {
+      console.error('Error reading OS release file:', err);
+      return 'Unknown Linux Distribution';
+    }
+  }
+
+  async getPublicIp(): Promise<string | void> {
+    try {
+      const response = await axios.get('https://api.ipify.org?format=json')
+      return response.data.ip;
+    } catch (error) {
+      console.error('Error fetching public IP:', error);
+    }
+  }
   getCpuUsage(): Promise<number> {
     return new Promise((resolve) => {
       os.cpuUsage((usage) => {
@@ -167,7 +243,6 @@ export class AppService {
   @Cron(CronExpression.EVERY_5_SECONDS)
   async logUsage(): Promise<void> {
     try {
-      console.log(process.env.MONITOR_SERVER_URL)
       const cpuUsage = await this.getCpuUsage();
       const memoryUsage = await this.getMemoryUsage();
       const networkData = await this.logNetworkSpeed();

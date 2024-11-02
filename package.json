@@ -27,6 +27,7 @@
     "@nestjs/schedule": "^4.1.1",
     "axios": "^1.7.7",
     "os-utils": "^0.0.14",
+    "public-ip": "^7.0.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1"
   },
