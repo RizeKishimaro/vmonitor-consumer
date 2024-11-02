@@ -7,15 +7,36 @@ import * as osInfo from "os"
 import axios from 'axios';
 import * as fs from 'fs';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { publicIpv4 } from 'public-ip';
 
 @Injectable()
 export class AppService {
-  constructor() { }
-  private prevRxBytes = 0;
+  constructor() {
+    this.interfaceName = this.getNetworkInterface(); // Dynamically set the network interface
+  } private prevRxBytes = 0;
   private prevTxBytes = 0;
   private path = '/etc/os-release';
-  private readonly interfaceName = 'wlan0';
+
+  private readonly interfaceName: string;
+
+
+  // Dynamically select the first active non-internal network interface
+  private getNetworkInterface(): string {
+    const networkInterfaces = osInfo.networkInterfaces();
+    for (const [name, interfaces] of Object.entries(networkInterfaces)) {
+      const activeInterface = interfaces?.find(
+        (iface) => !iface.internal && iface.family === 'IPv4',
+      );
+      if (activeInterface) {
+        console.log(`Using network interface: ${name}`);
+        return name;
+      }
+    }
+
+    // Fallback if no suitable network interface is found
+    throw new Error('No active network interface found.');
+  }
+
+
   private async getNetworkSpeed(): Promise<{ rxbytes: number; txbytes: number }> {
     return new Promise((resolve, reject) => {
       exec('cat /proc/net/dev', (error, stdout) => {
